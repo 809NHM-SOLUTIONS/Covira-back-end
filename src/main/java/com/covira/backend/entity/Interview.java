@@ -1,7 +1,7 @@
 package com.covira.backend.entity;
 
 import jakarta.persistence.*;
-
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +16,18 @@ public class Interview {
 
     @Column(nullable = false)
     private String title;
+
+    @Column(nullable = false)
+    private String position;
+
+    @Column(nullable = false)
+    private String department;
+
+    @Column(name = "employment_type", nullable = false)
+    private String employmentType;
+
+    @Column(nullable = false)
+    private String location;
 
     @Column(columnDefinition = "TEXT")
     private String description;
@@ -32,20 +44,30 @@ public class Interview {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
-    @ManyToMany
-    @JoinTable(
-            name = "interview_questions",
-            joinColumns = @JoinColumn(name = "interview_id"),
-            inverseJoinColumns = @JoinColumn(name = "question_id")
+    // Candidate must complete the interview before this date/time.
+    // This is optional.
+    @Column(name = "candidate_deadline")
+    private LocalDateTime candidateDeadline;
+
+    @OneToMany(
+            mappedBy = "interview",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
     )
-    private List<Question> questions = new ArrayList<>();
+    @OrderBy("questionOrder ASC")
+    @JsonManagedReference
+    private List<InterviewQuestion> interviewQuestions =
+            new ArrayList<>();
+
 
     public Interview() {
     }
 
+
     public Long getId() {
         return id;
     }
+
 
     public String getTitle() {
         return title;
@@ -55,6 +77,43 @@ public class Interview {
         this.title = title;
     }
 
+
+    public String getPosition() {
+        return position;
+    }
+
+    public void setPosition(String position) {
+        this.position = position;
+    }
+
+
+    public String getDepartment() {
+        return department;
+    }
+
+    public void setDepartment(String department) {
+        this.department = department;
+    }
+
+
+    public String getEmploymentType() {
+        return employmentType;
+    }
+
+    public void setEmploymentType(String employmentType) {
+        this.employmentType = employmentType;
+    }
+
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+
     public String getDescription() {
         return description;
     }
@@ -62,6 +121,7 @@ public class Interview {
     public void setDescription(String description) {
         this.description = description;
     }
+
 
     public String getEmployerEmail() {
         return employerEmail;
@@ -71,6 +131,7 @@ public class Interview {
         this.employerEmail = employerEmail;
     }
 
+
     public String getAccessToken() {
         return accessToken;
     }
@@ -78,6 +139,7 @@ public class Interview {
     public void setAccessToken(String accessToken) {
         this.accessToken = accessToken;
     }
+
 
     public String getStatus() {
         return status;
@@ -87,6 +149,7 @@ public class Interview {
         this.status = status;
     }
 
+
     public LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -95,11 +158,44 @@ public class Interview {
         this.createdAt = createdAt;
     }
 
-    public List<Question> getQuestions() {
-        return questions;
+
+    public LocalDateTime getCandidateDeadline() {
+        return candidateDeadline;
     }
 
-    public void setQuestions(List<Question> questions) {
-        this.questions = questions;
+    public void setCandidateDeadline(LocalDateTime candidateDeadline) {
+        this.candidateDeadline = candidateDeadline;
+    }
+
+
+    public List<InterviewQuestion> getInterviewQuestions() {
+        return interviewQuestions;
+    }
+
+
+    public void setInterviewQuestions(
+            List<InterviewQuestion> interviewQuestions) {
+
+        this.interviewQuestions = interviewQuestions;
+    }
+
+
+    public void addQuestion(
+            Question question,
+            int questionOrder) {
+
+        InterviewQuestion interviewQuestion =
+                new InterviewQuestion();
+
+        interviewQuestion.setInterview(this);
+        interviewQuestion.setQuestion(question);
+        interviewQuestion.setQuestionOrder(questionOrder);
+
+        this.interviewQuestions.add(interviewQuestion);
+    }
+
+
+    public void clearQuestions() {
+        this.interviewQuestions.clear();
     }
 }

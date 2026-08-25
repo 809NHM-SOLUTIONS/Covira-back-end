@@ -13,47 +13,89 @@ public class QuestionController {
 
     private final QuestionService questionService;
 
-    public QuestionController(QuestionService questionService) {
+    public QuestionController(
+            QuestionService questionService) {
+
         this.questionService = questionService;
     }
 
-    // CREATE
+
+    // =========================================================
+    // CREATE QUESTION
+    // =========================================================
+
     @PostMapping
-    public Question createQuestion(@RequestBody Question question) {
+    public Question createQuestion(
+            @RequestBody Question question) {
 
-        if (question.getCreationMethod() == null) {
-            question.setCreationMethod("MANUAL");
-        }
-
-        return questionService.createQuestion(question);
+        return questionService.createQuestion(
+                question
+        );
     }
 
-    // READ - get questions for a specific user
+
+    // =========================================================
+    // GET EMPLOYER'S QUESTIONS
+    // =========================================================
+
     @GetMapping
     public List<Question> getQuestionsByUserEmail(
             @RequestParam String email) {
 
-        return questionService.getQuestionsByUserEmail(email);
+        return questionService
+                .getQuestionsByUserEmail(email);
     }
 
-    // READ - get one question
+
+    // =========================================================
+    // GET ONE QUESTION
+    // =========================================================
+
     @GetMapping("/{id}")
-    public Question getQuestion(@PathVariable Long id) {
-        return questionService.getQuestionById(id);
+    public Question getQuestion(
+            @PathVariable Long id,
+            @RequestParam String email) {
+
+        return questionService
+                .getQuestionById(
+                        id,
+                        email
+                );
     }
 
-    // UPDATE
+
+    // =========================================================
+    // UPDATE QUESTION
+    // =========================================================
+
     @PutMapping("/{id}")
     public Question updateQuestion(
             @PathVariable Long id,
+            @RequestParam String email,
             @RequestBody Question question) {
 
-        return questionService.updateQuestion(id, question);
+        return questionService
+                .updateQuestion(
+                        id,
+                        email,
+                        question
+                );
     }
 
-    // DELETE
+
+    // =========================================================
+    // DELETE QUESTION
+    // =========================================================
+
     @DeleteMapping("/{id}")
-    public void deleteQuestion(@PathVariable Long id) {
-        questionService.deleteQuestion(id);
+    public void deleteQuestion(
+            @PathVariable Long id,
+            @RequestParam String email) {
+
+        questionService
+                .deleteQuestion(
+                        id,
+                        email
+                );
     }
 }

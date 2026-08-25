@@ -15,40 +15,122 @@ public class QuestionService {
         this.questionRepository = questionRepository;
     }
 
-    // CREATE
+
+    // =========================================================
+    // CREATE QUESTION
+    // =========================================================
+
     public Question createQuestion(Question question) {
+
+        if (question.getCreationMethod() == null ||
+                question.getCreationMethod().isBlank()) {
+
+            question.setCreationMethod("MANUAL");
+        }
+
         return questionRepository.save(question);
     }
 
-    // READ - get questions belonging to a specific user
-    public List<Question> getQuestionsByUserEmail(String userEmail) {
-        return questionRepository.findByUserEmail(userEmail);
+
+    // =========================================================
+    // GET QUESTIONS FOR EMPLOYER
+    // =========================================================
+
+    public List<Question> getQuestionsByUserEmail(
+            String userEmail) {
+
+        if (userEmail == null ||
+                userEmail.isBlank()) {
+
+            throw new IllegalArgumentException(
+                    "Employer email is required."
+            );
+        }
+
+        return questionRepository
+                .findByUserEmail(userEmail);
     }
 
-    // READ - get one question
-    public Question getQuestionById(Long id) {
-        return questionRepository.findById(id)
+
+    // =========================================================
+    // GET ONE QUESTION FOR EMPLOYER
+    // =========================================================
+
+    public Question getQuestionById(
+            Long id,
+            String userEmail) {
+
+        return questionRepository
+                .findByIdAndUserEmail(
+                        id,
+                        userEmail
+                )
                 .orElseThrow(() ->
-                        new RuntimeException("Question not found"));
+                        new RuntimeException(
+                                "Question not found."
+                        ));
     }
 
-    // UPDATE
-    public Question updateQuestion(Long id, Question updatedQuestion) {
 
-        Question question = getQuestionById(id);
+    // =========================================================
+    // UPDATE QUESTION
+    // =========================================================
 
-        question.setQuestionText(updatedQuestion.getQuestionText());
-        question.setCategory(updatedQuestion.getCategory());
-        question.setDifficulty(updatedQuestion.getDifficulty());
-        question.setResponseDuration(updatedQuestion.getResponseDuration());
-        question.setCreationMethod(updatedQuestion.getCreationMethod());
+    public Question updateQuestion(
+            Long id,
+            String userEmail,
+            Question updatedQuestion) {
 
-        return questionRepository.save(question);
+        Question question =
+                getQuestionById(
+                        id,
+                        userEmail
+                );
+
+
+        question.setQuestionText(
+                updatedQuestion.getQuestionText()
+        );
+
+        question.setCategory(
+                updatedQuestion.getCategory()
+        );
+
+        question.setDifficulty(
+                updatedQuestion.getDifficulty()
+        );
+
+        question.setResponseDuration(
+                updatedQuestion.getResponseDuration()
+        );
+
+        question.setCreationMethod(
+                updatedQuestion.getCreationMethod()
+        );
+
+
+        return questionRepository.save(
+                question
+        );
     }
 
-    // DELETE
-    public void deleteQuestion(Long id) {
-        Question question = getQuestionById(id);
-        questionRepository.delete(question);
+
+    // =========================================================
+    // DELETE QUESTION
+    // =========================================================
+
+    public void deleteQuestion(
+            Long id,
+            String userEmail) {
+
+        Question question =
+                getQuestionById(
+                        id,
+                        userEmail
+                );
+
+        questionRepository.delete(
+                question
+        );
     }
 }
