@@ -4,7 +4,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
@@ -15,15 +14,12 @@ public class EmailService {
     @Autowired
     private JavaMailSender mailSender;
 
-    @Value("${spring.mail.username}")
-    private String mailUsername;
-
     // OTP email
     public void sendOtpEmail(String to, String otp) {
 
         SimpleMailMessage message = new SimpleMailMessage();
 
-        message.setFrom("mailUsername");
+        message.setFrom("covirateams@gmail.com");
         message.setTo(to);
         message.setSubject("Covira Password Reset OTP");
 
@@ -54,7 +50,8 @@ public class EmailService {
                         "Your employer account has been created successfully.\n\n" +
 
                         "You can now:\n" +
-                        "• Create video interviews\n" +
+                   
+     "• Create video interviews\n" +
                         "• Manage interview questions\n" +
                         "• Invite candidates\n" +
                         "• Review candidate responses\n\n" +
@@ -74,7 +71,7 @@ public class EmailService {
 
         SimpleMailMessage message = new SimpleMailMessage();
 
-        message.setFrom("mailUsername");
+        message.setFrom("covirateams@gmail.com");
         message.setTo(to);
         message.setSubject("Covira Password Change Verification");
 
@@ -99,7 +96,7 @@ public class EmailService {
 
         SimpleMailMessage message = new SimpleMailMessage();
 
-        message.setFrom("mailUsername");
+        message.setFrom("covirateams@gmail.com");
         message.setTo(to);
         message.setSubject("Your Covira account details have been successfully updated");
 
@@ -126,7 +123,7 @@ public class EmailService {
 
         SimpleMailMessage message = new SimpleMailMessage();
 
-        message.setFrom("mailUsername");
+        message.setFrom("covirateams@gmail.com");
         message.setTo(to);
         message.setSubject("Your Covira account details have been successfully updated");
 
