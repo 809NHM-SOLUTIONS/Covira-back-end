@@ -1,8 +1,13 @@
 package com.covira.backend.entity;
 
-import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "users")
@@ -29,6 +34,10 @@ public class User {
 
     private LocalDateTime otpExpiry;
 
+    @Column(name = "pending_password")
+    private String pendingPassword;
+
+    
     public User() {
     }
 
@@ -89,5 +98,12 @@ public class User {
 
     public void setOtpExpiry(LocalDateTime otpExpiry) {
         this.otpExpiry = otpExpiry;
+    }
+    public String getPendingPassword() {
+        return pendingPassword;
+    }
+
+    public void setPendingPassword(String pendingPassword) {
+        this.pendingPassword = pendingPassword;
     }
 }
