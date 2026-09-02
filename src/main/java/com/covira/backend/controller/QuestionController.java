@@ -209,4 +209,22 @@ public class QuestionController {
             Integer timeLimit
     ) {
     }
+        @GetMapping("/interviews/{interviewId}/questions/locked")
+    public ResponseEntity<?> isLocked(
+            @PathVariable Long interviewId
+    ) {
+
+        try {
+
+            boolean locked = questionService.isLocked(interviewId);
+
+            return ResponseEntity.ok(java.util.Map.of("locked", locked));
+
+        } catch (IllegalArgumentException e) {
+
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(e.getMessage());
+        }
+    }
 }

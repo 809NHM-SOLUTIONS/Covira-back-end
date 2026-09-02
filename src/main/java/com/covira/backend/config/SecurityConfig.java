@@ -31,10 +31,8 @@ public class SecurityConfig {
                 )
 
                 .authorizeHttpRequests(auth -> auth
-                        // CORS preflight requests never carry credentials, so they
-                        // must be permitted before any other rule is evaluated —
-                        // otherwise the browser aborts the real request with a
-                        // generic network error before it's ever sent.
+                        
+                        
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         .requestMatchers(

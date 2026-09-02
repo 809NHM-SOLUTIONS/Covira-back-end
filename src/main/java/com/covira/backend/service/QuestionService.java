@@ -2,6 +2,7 @@ package com.covira.backend.service;
 
 import com.covira.backend.entity.Interview;
 import com.covira.backend.entity.Question;
+import com.covira.backend.repository.CandidateRepository;
 import com.covira.backend.repository.InterviewRepository;
 import com.covira.backend.repository.QuestionRepository;
 import org.springframework.stereotype.Service;
@@ -13,20 +14,17 @@ public class QuestionService {
 
     private final QuestionRepository questionRepository;
     private final InterviewRepository interviewRepository;
+    private final CandidateRepository candidateRepository;
 
     public QuestionService(
             QuestionRepository questionRepository,
-            InterviewRepository interviewRepository
+            InterviewRepository interviewRepository,
+            CandidateRepository candidateRepository
     ) {
         this.questionRepository = questionRepository;
         this.interviewRepository = interviewRepository;
+        this.candidateRepository = candidateRepository;
     }
-
-    /*
-     * ============================================================
-     * CREATE QUESTION
-     * ============================================================
-     */
 
     public Question createQuestion(
             Long interviewId,
@@ -42,6 +40,8 @@ public class QuestionService {
                                 "Interview not found."
                         )
                 );
+
+        assertNotLocked(interview);
 
         List<Question> existingQuestions =
                 questionRepository
@@ -63,12 +63,6 @@ public class QuestionService {
         return questionRepository.save(question);
     }
 
-    /*
-     * ============================================================
-     * GET QUESTIONS
-     * ============================================================
-     */
-
     public List<Question> getQuestions(Long interviewId) {
 
         return questionRepository
@@ -77,11 +71,39 @@ public class QuestionService {
                 );
     }
 
-    /*
-     * ============================================================
-     * GET PUBLIC QUESTIONS
-     * ============================================================
+    /**
+      An interview locks the moment any candidate has completed it
      */
+    public boolean isLocked(Long interviewId) {
+
+        Interview interview = interviewRepository
+                .findById(interviewId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Interview not found."
+                        )
+                );
+
+        return candidateRepository.existsByInterviewAndStatus(
+                interview.getTitle(),
+                "Completed"
+        );
+    }
+
+    private void assertNotLocked(Interview interview) {
+
+        boolean hasCompletedCandidate =
+                candidateRepository.existsByInterviewAndStatus(
+                        interview.getTitle(),
+                        "Completed"
+                );
+
+        if (hasCompletedCandidate) {
+            throw new IllegalArgumentException(
+                    "This interview has candidate submissions and can no longer be edited."
+            );
+        }
+    }
 
     public List<Question> getPublicQuestions(String token) {
 
@@ -100,12 +122,6 @@ public class QuestionService {
                 );
     }
 
-    /*
-     * ============================================================
-     * GET ONE QUESTION
-     * ============================================================
-     */
-
     public Question getQuestion(
             Long interviewId,
             Long questionId
@@ -123,16 +139,20 @@ public class QuestionService {
                 );
     }
 
-    /*
-     * ============================================================
-     * DELETE QUESTION
-     * ============================================================
-     */
-
     public void deleteQuestion(
             Long interviewId,
             Long questionId
     ) {
+
+        Interview interview = interviewRepository
+                .findById(interviewId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Interview not found."
+                        )
+                );
+
+        assertNotLocked(interview);
 
         Question question = getQuestion(
                 interviewId,

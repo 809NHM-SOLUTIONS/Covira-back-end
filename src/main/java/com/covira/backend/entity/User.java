@@ -37,6 +37,16 @@ public class User {
     @Column(name = "pending_password")
     private String pendingPassword;
 
+     @Column(name = "notify_new_candidate_applications")
+    private Boolean notifyNewCandidateApplications = true;
+
+    
+    
+    @Column(name = "language")
+    private String language = "en";
+
+    @Column(name = "timezone")
+    private String timezone = "Africa/Johannesburg";
     
     public User() {
     }
@@ -105,5 +115,28 @@ public class User {
 
     public void setPendingPassword(String pendingPassword) {
         this.pendingPassword = pendingPassword;
+    }
+     public Boolean getNotifyNewCandidateApplications() {
+        return notifyNewCandidateApplications;
+    }
+
+    public void setNotifyNewCandidateApplications(Boolean notifyNewCandidateApplications) {
+        this.notifyNewCandidateApplications = notifyNewCandidateApplications;
+    }
+
+    public String getLanguage() {
+        return language;
+    }
+
+    public void setLanguage(String language) {
+        this.language = language;
+    }
+
+    public String getTimezone() {
+        return timezone;
+    }
+
+    public void setTimezone(String timezone) {
+        this.timezone = timezone;
     }
 }

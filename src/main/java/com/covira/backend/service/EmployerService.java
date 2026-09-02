@@ -3,6 +3,8 @@ package com.covira.backend.service;
 import com.covira.backend.dto.ChangePasswordRequest;
 import com.covira.backend.dto.EmployerProfileResponse;
 import com.covira.backend.dto.EmployerProfileUpdateRequest;
+import com.covira.backend.dto.EmployerSettingsResponse;
+import com.covira.backend.dto.EmployerSettingsUpdateRequest;
 import com.covira.backend.entity.User;
 import com.covira.backend.repository.UserRepository;
 
@@ -35,12 +37,7 @@ public class EmployerService {
                 .orElseThrow(() ->
                         new RuntimeException("Employer not found."));
 
-        return new EmployerProfileResponse(
-                user.getCompanyName(),
-                user.getFullName(),
-                user.getEmail(),
-                user.getPhoneNumber()
-        );
+        return toProfileResponse(user);
     }
 
     public EmployerProfileResponse updateProfile(
@@ -61,6 +58,10 @@ public class EmployerService {
 
         emailService.sendProfileUpdateConfirmationEmail(user.getEmail(), LocalDateTime.now());
 
+        return toProfileResponse(user);
+    }
+
+    private EmployerProfileResponse toProfileResponse(User user) {
         return new EmployerProfileResponse(
                 user.getCompanyName(),
                 user.getFullName(),
@@ -68,12 +69,6 @@ public class EmployerService {
                 user.getPhoneNumber()
         );
     }
-
-    /*
-     * ============================================================
-     * CHANGE PASSWORD (logged-in employer, OTP-verified)
-     * ============================================================
-     */
 
     public String requestPasswordChange(Long userId, ChangePasswordRequest request) {
 
@@ -99,9 +94,9 @@ public class EmployerService {
 
         String otp = generateOtp();
 
-        // Hash the new password immediately. It is only ever copied into
-        // user.password once the OTP has been verified — never stored or
-        // transmitted in plain text.
+        /* Hash the new password immediately. It is only ever copied into
+         user.password once the OTP has been verified - never stored or
+         transmitted in plain text.*/
         user.setPendingPassword(passwordEncoder.encode(request.getNewPassword()));
         user.setOtp(otp);
         user.setOtpExpiry(LocalDateTime.now().plusMinutes(5));
@@ -135,13 +130,11 @@ public class EmployerService {
             throw new IllegalArgumentException("This code has expired. Please request a new one.");
         }
 
-        // Apply the already-hashed password now that identity is verified.
         user.setPassword(user.getPendingPassword());
         clearPendingChange(user);
 
         userRepository.save(user);
 
-        // Confirm the change by email. Never include the new password or the OTP.
         emailService.sendPasswordChangeConfirmationEmail(user.getEmail(), LocalDateTime.now());
 
         return "Your password has been changed successfully. Please log in again.";
@@ -196,5 +189,40 @@ public class EmployerService {
                 "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&^#()_+=\\-]).{8,}$";
 
         return password != null && password.matches(regex);
+    }
+
+    public EmployerSettingsResponse getSettings(Long userId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new RuntimeException("Employer not found."));
+
+        return toSettingsResponse(user);
+    }
+
+    public EmployerSettingsResponse updateSettings(
+            Long userId,
+            EmployerSettingsUpdateRequest request
+    ) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new RuntimeException("Employer not found."));
+
+        user.setNotifyNewCandidateApplications(request.isNotifyNewCandidateApplications());
+        user.setLanguage(request.getLanguage());
+        user.setTimezone(request.getTimezone());
+
+        userRepository.save(user);
+
+        return toSettingsResponse(user);
+    }
+
+    private EmployerSettingsResponse toSettingsResponse(User user) {
+        return new EmployerSettingsResponse(
+                Boolean.TRUE.equals(user.getNotifyNewCandidateApplications()),
+                user.getLanguage(),
+                user.getTimezone()
+        );
     }
 }

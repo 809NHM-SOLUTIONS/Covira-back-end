@@ -19,4 +19,5 @@ public interface CandidateRepository
             Long id,
             Long employerId
     );
+        boolean existsByInterviewAndStatus(String interview, String status);
 }

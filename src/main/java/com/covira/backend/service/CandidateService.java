@@ -1,5 +1,6 @@
 package com.covira.backend.service;
 
+
 import com.covira.backend.dto.CandidateDto;
 import com.covira.backend.dto.CandidateResponseDto;
 import com.covira.backend.entity.Candidate;
@@ -13,6 +14,7 @@ import com.covira.backend.repository.QuestionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import com.covira.backend.notification.NotificationType;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -38,18 +40,21 @@ public class CandidateService {
     private final InterviewRepository interviewRepository;
     private final CandidateResponseRepository candidateResponseRepository;
     private final QuestionRepository questionRepository;
+        private final NotificationService notificationService;
 
     public CandidateService(
             CandidateRepository candidateRepository,
             InterviewRepository interviewRepository,
             CandidateResponseRepository candidateResponseRepository,
-            QuestionRepository questionRepository
+            QuestionRepository questionRepository,
+            NotificationService notificationService
     ) {
         this.candidateRepository = candidateRepository;
         this.interviewRepository = interviewRepository;
         this.candidateResponseRepository = candidateResponseRepository;
         this.questionRepository = questionRepository;
-    }
+        this.notificationService = notificationService;
+}
 
 
     /*
@@ -635,7 +640,13 @@ public class CandidateService {
         candidateRepository.save(
                 candidate
         );
-
+               notificationService.createForCandidate(
+        NotificationType.CANDIDATE_SUBMITTED,
+        "New Candidate Submission",
+        "A candidate has submitted their interview responses and is ready for review.",
+        candidate,
+        interview != null ? interview.getId() : null
+);
 
         return toDto(candidate);
     }

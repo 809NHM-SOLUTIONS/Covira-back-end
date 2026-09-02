@@ -14,6 +14,8 @@ import com.covira.backend.dto.ChangePasswordOtpRequest;
 import com.covira.backend.dto.ChangePasswordRequest;
 import com.covira.backend.dto.EmployerProfileResponse;
 import com.covira.backend.dto.EmployerProfileUpdateRequest;
+import com.covira.backend.dto.EmployerSettingsResponse;
+import com.covira.backend.dto.EmployerSettingsUpdateRequest;
 import com.covira.backend.service.EmployerService;
 
 import jakarta.servlet.http.HttpSession;
@@ -117,9 +119,10 @@ public class EmployerController {
         try {
             String message = employerService.verifyPasswordChangeOtp(userId, request.getOtp());
 
-            // Invalidate the session server-side too, so the old session
-            // cookie can't keep authenticating after the password changed.
-            session.invalidate();
+            /*Invalidate the session server-side too, so the old session
+             cookie can't keep authenticating after the password changed.
+           */ 
+          session.invalidate();
 
             return ResponseEntity.ok(message);
         } catch (IllegalArgumentException e) {
@@ -149,5 +152,35 @@ public class EmployerController {
                     .badRequest()
                     .body(e.getMessage());
         }
+    }
+       @GetMapping("/settings")
+    public ResponseEntity<?> getSettings(HttpSession session) {
+
+        Long userId = (Long) session.getAttribute("loggedInUserId");
+
+        if (userId == null) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body("User is not logged in.");
+        }
+
+        return ResponseEntity.ok(employerService.getSettings(userId));
+    }
+
+    @PutMapping("/settings")
+    public ResponseEntity<?> updateSettings(
+            @RequestBody EmployerSettingsUpdateRequest request,
+            HttpSession session
+    ) {
+
+        Long userId = (Long) session.getAttribute("loggedInUserId");
+
+        if (userId == null) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body("User is not logged in.");
+        }
+
+        return ResponseEntity.ok(employerService.updateSettings(userId, request));
     }
 }
