@@ -5,6 +5,7 @@ public class EmployerSettingsUpdateRequest {
     private boolean notifyNewCandidateApplications;
     private String language;
     private String timezone;
+    private String ccEmail;
 
     public boolean isNotifyNewCandidateApplications() {
         return notifyNewCandidateApplications;
@@ -28,5 +29,13 @@ public class EmployerSettingsUpdateRequest {
 
     public void setTimezone(String timezone) {
         this.timezone = timezone;
+    }
+
+    public String getCcEmail() {
+        return ccEmail;
+    }
+
+    public void setCcEmail(String ccEmail) {
+        this.ccEmail = ccEmail;
     }
 }

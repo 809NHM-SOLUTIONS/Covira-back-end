@@ -41,19 +41,25 @@ public class CandidateService {
     private final CandidateResponseRepository candidateResponseRepository;
     private final QuestionRepository questionRepository;
         private final NotificationService notificationService;
+        private final EmailService emailService;
+ 
+private static final java.time.ZoneId SERVER_ZONE = java.time.ZoneId.of("Africa/Johannesburg");
+
 
     public CandidateService(
             CandidateRepository candidateRepository,
             InterviewRepository interviewRepository,
             CandidateResponseRepository candidateResponseRepository,
             QuestionRepository questionRepository,
-            NotificationService notificationService
+            NotificationService notificationService,
+            EmailService emailService
     ) {
         this.candidateRepository = candidateRepository;
         this.interviewRepository = interviewRepository;
         this.candidateResponseRepository = candidateResponseRepository;
         this.questionRepository = questionRepository;
         this.notificationService = notificationService;
+        this.emailService = emailService;
 }
 
 
@@ -399,6 +405,24 @@ public class CandidateService {
 
 
         if (existingCandidate != null) {
+
+            /*
+             * "Pending" means they registered but never finished
+             * submitting - let them resume where they left off.
+             *
+             * Anything else (Completed, Shortlisted, Rejected, ...)
+             * means they already completed this interview, so block
+             * re-registration instead of silently starting them over.
+             */
+
+            if (!"Pending".equalsIgnoreCase(existingCandidate.getStatus())) {
+
+                throw new IllegalArgumentException(
+                        "You have already completed this interview. " +
+                                "Multiple submissions are not permitted."
+                );
+            }
+
             return toDto(existingCandidate);
         }
 
@@ -648,7 +672,148 @@ public class CandidateService {
         interview != null ? interview.getId() : null
 );
 
+        /*
+         * Email the employer (and their CC address, if set) that a
+         * candidate has submitted. Respects the same notification
+         * toggle as the in-app alert. Best-effort - a mail failure
+         * shouldn't fail the candidate's submission.
+         */
+
+        try {
+
+            var employer = candidate.getEmployer();
+
+            if (Boolean.TRUE.equals(employer.getNotifyNewCandidateApplications())) {
+
+                emailService.sendCandidateSubmittedAlertEmail(
+                        employer.getEmail(),
+                        employer.getCcEmail(),
+                        candidate.getName(),
+                        candidate.getPosition(),
+                        candidate.getInterview()
+                );
+            }
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+        }
+
+        /*
+         * Let the candidate know their submission was received.
+         * Email delivery issues should not fail the submission
+         * itself, so this is best-effort.
+         */
+
+        try {
+
+            emailService.sendCandidateSubmissionConfirmationEmail(
+                    candidate.getEmail(),
+                    candidate.getName(),
+                    candidate.getInterview(),
+                    candidate.getPosition()
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+        }
+
         return toDto(candidate);
+    }
+
+
+    /*
+     * ============================================================
+     * RECORD REVIEW DECISION (SHORTLIST / REJECT)
+     * ============================================================
+     */
+
+    @Transactional
+    public CandidateDto recordDecision(
+            Long employerId,
+            Long candidateId,
+            String decision
+    ) {
+
+        if (decision == null || decision.trim().isEmpty()) {
+
+            throw new IllegalArgumentException(
+                    "A decision is required."
+            );
+        }
+
+        String normalized =
+                decision.trim().toUpperCase();
+
+        if (!normalized.equals("SHORTLIST") &&
+                !normalized.equals("REJECT")) {
+
+            throw new IllegalArgumentException(
+                    "Decision must be either SHORTLIST or REJECT."
+            );
+        }
+
+        Candidate candidate =
+                candidateRepository
+                        .findByIdAndEmployerId(
+                                candidateId,
+                                employerId
+                        )
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "Candidate not found."
+                                )
+                        );
+
+        if (candidate.getSubmittedAt() == null) {
+
+            throw new IllegalArgumentException(
+                    "This candidate hasn't submitted their interview yet."
+            );
+        }
+
+        String newStatus =
+                normalized.equals("SHORTLIST")
+                        ? "Shortlisted"
+                        : "Rejected";
+
+        candidate.setStatus(newStatus);
+
+        Candidate savedCandidate =
+                candidateRepository.save(candidate);
+
+        try {
+
+            emailService.sendCandidateDecisionEmail(
+                    savedCandidate.getEmail(),
+                    savedCandidate.getName(),
+                    savedCandidate.getInterview(),
+                    savedCandidate.getPosition(),
+                    newStatus.toUpperCase()
+            );
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+        }
+
+        notificationService.createForCandidate(
+                normalized.equals("SHORTLIST")
+                        ? NotificationType.CANDIDATE_SHORTLISTED
+                        : NotificationType.CANDIDATE_REJECTED,
+                normalized.equals("SHORTLIST")
+                        ? "Candidate Shortlisted"
+                        : "Candidate Rejected",
+                savedCandidate.getName() +
+                        (normalized.equals("SHORTLIST")
+                                ? " has been shortlisted."
+                                : " has been rejected."),
+                savedCandidate,
+                null
+        );
+
+        return toDto(savedCandidate);
     }
 
 
@@ -670,23 +835,30 @@ public class CandidateService {
 
 
         return new CandidateDto(
-                candidate.getId(),
-                candidate.getName(),
-                candidate.getEmail(),
-                candidate.getPosition(),
-                candidate.getInterview(),
-                candidate.getDepartment(),
-                candidate.getLocation(),
-                candidate.getStatus(),
+        candidate.getId(),
+        candidate.getName(),
+        candidate.getEmail(),
+        candidate.getPosition(),
+        candidate.getInterview(),
+        candidate.getDepartment(),
+        candidate.getLocation(),
+        candidate.getStatus(),
 
-                candidate.getSubmittedAt() == null
-                        ? "-"
-                        : DATE_FORMAT.format(
-                                candidate.getSubmittedAt()
-                        ),
+        candidate.getSubmittedAt() == null
+                ? "-"
+                : DATE_FORMAT.format(
+                        candidate.getSubmittedAt()
+                ),
 
-                responses
-        );
+        candidate.getSubmittedAt() == null      // ← this is the excerpt
+                ? null                            //   (submittedAtIso argument)
+                : candidate.getSubmittedAt()
+                        .atZone(SERVER_ZONE)
+                        .toInstant()
+                        .toString(),
+
+        responses
+);
     }
 
 

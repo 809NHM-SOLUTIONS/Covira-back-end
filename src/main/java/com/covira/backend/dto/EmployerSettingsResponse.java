@@ -5,15 +5,18 @@ public class EmployerSettingsResponse {
     private boolean notifyNewCandidateApplications;
     private String language;
     private String timezone;
+    private String ccEmail;
 
     public EmployerSettingsResponse(
             boolean notifyNewCandidateApplications,
             String language,
-            String timezone
+            String timezone,
+            String ccEmail
     ) {
         this.notifyNewCandidateApplications = notifyNewCandidateApplications;
         this.language = language;
         this.timezone = timezone;
+        this.ccEmail = ccEmail;
     }
 
     public boolean isNotifyNewCandidateApplications() {
@@ -26,5 +29,9 @@ public class EmployerSettingsResponse {
 
     public String getTimezone() {
         return timezone;
+    }
+
+    public String getCcEmail() {
+        return ccEmail;
     }
 }

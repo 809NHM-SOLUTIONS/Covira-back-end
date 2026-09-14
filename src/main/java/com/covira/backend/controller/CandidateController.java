@@ -268,6 +268,65 @@ public class CandidateController {
 
     /*
      * ============================================================
+     * RECORD REVIEW DECISION (SHORTLIST / REJECT)
+     * ============================================================
+     *
+     * POST /api/candidates/{id}/decision
+     * Body: { "decision": "SHORTLIST" | "REJECT" }
+     * ============================================================
+     */
+
+    @PostMapping("/{id}/decision")
+    public ResponseEntity<?> recordDecision(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request,
+            HttpSession session
+    ) {
+
+        Long employerId =
+                getEmployerId(session);
+
+        if (employerId == null) {
+
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body("User is not logged in.");
+        }
+
+        try {
+
+            CandidateDto candidate =
+                    candidateService.recordDecision(
+                            employerId,
+                            id,
+                            request.get("decision")
+                    );
+
+            return ResponseEntity.ok(candidate);
+
+        } catch (IllegalArgumentException e) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(e.getMessage());
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            return ResponseEntity
+                    .status(
+                            HttpStatus.INTERNAL_SERVER_ERROR
+                    )
+                    .body(
+                            "Failed to record decision."
+                    );
+        }
+    }
+
+
+    /*
+     * ============================================================
      * SESSION USER
      * ============================================================
      */

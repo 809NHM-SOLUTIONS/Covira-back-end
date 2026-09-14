@@ -53,7 +53,7 @@ public class DashboardService {
     ) {
 
         long completed = candidates.stream()
-                .filter(c -> "Completed".equalsIgnoreCase(c.getStatus()))
+                .filter(this::hasResponded)
                 .count();
 
         long pending = candidates.stream()
@@ -92,8 +92,7 @@ public class DashboardService {
 
         for (Candidate candidate : candidates) {
 
-            if (!"Completed".equalsIgnoreCase(candidate.getStatus())
-                    || candidate.getSubmittedAt() == null) {
+            if (!hasResponded(candidate)) {
                 continue;
             }
 
@@ -131,7 +130,7 @@ public class DashboardService {
                             .collect(Collectors.toList());
 
                     long completedCount = matched.stream()
-                            .filter(c -> "Completed".equalsIgnoreCase(c.getStatus()))
+                            .filter(this::hasResponded)
                             .count();
 
                     return new RecentInterviewDto(
@@ -155,7 +154,7 @@ public class DashboardService {
                 .count();
 
         long completed = candidates.stream()
-                .filter(c -> "Completed".equalsIgnoreCase(c.getStatus()))
+                .filter(this::hasResponded)
                 .count();
 
         
@@ -227,6 +226,17 @@ public class DashboardService {
         }
 
         return actions;
+    }
+
+    /*
+     * "Responded" = the candidate submitted their interview at some
+     * point, regardless of any Shortlist/Reject decision made since.
+     * Using submittedAt (set once, never cleared) instead of status
+     * keeps response-rate figures stable after a review decision
+     * moves the status away from "Completed".
+     */
+    private boolean hasResponded(Candidate candidate) {
+        return candidate.getSubmittedAt() != null;
     }
 
     private Long findInterviewIdByTitle(List<Interview> interviews, String title) {

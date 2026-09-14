@@ -12,6 +12,7 @@ public record CandidateDto(
         String location,
         String status,
         String submittedAt,
+        String submittedAtIso,
         List<CandidateResponseDto> responses
 ) {
 }

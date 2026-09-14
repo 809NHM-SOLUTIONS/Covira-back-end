@@ -20,6 +20,9 @@ public class EmployerService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private static final java.util.regex.Pattern EMAIL_PATTERN =
+        java.util.regex.Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+
 
     public EmployerService(
             UserRepository userRepository,
@@ -209,6 +212,22 @@ public class EmployerService {
                 .orElseThrow(() ->
                         new RuntimeException("Employer not found."));
 
+        String ccEmail =
+            request.getCcEmail() == null
+                    ? null
+                    : request.getCcEmail().trim();
+
+    if (ccEmail != null && ccEmail.isEmpty()) {
+        ccEmail = null;
+    }
+
+    if (ccEmail != null && !EMAIL_PATTERN.matcher(ccEmail).matches()) {
+        throw new IllegalArgumentException(
+                "Please enter a valid CC email address."
+        );
+    }
+
+
         user.setNotifyNewCandidateApplications(request.isNotifyNewCandidateApplications());
         user.setLanguage(request.getLanguage());
         user.setTimezone(request.getTimezone());
@@ -219,10 +238,11 @@ public class EmployerService {
     }
 
     private EmployerSettingsResponse toSettingsResponse(User user) {
-        return new EmployerSettingsResponse(
-                Boolean.TRUE.equals(user.getNotifyNewCandidateApplications()),
-                user.getLanguage(),
-                user.getTimezone()
-        );
+    return new EmployerSettingsResponse(
+            Boolean.TRUE.equals(user.getNotifyNewCandidateApplications()),
+            user.getLanguage(),
+            user.getTimezone(),
+            user.getCcEmail()
+    );
     }
 }

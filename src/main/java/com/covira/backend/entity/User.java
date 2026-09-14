@@ -48,6 +48,9 @@ public class User {
     @Column(name = "timezone")
     private String timezone = "Africa/Johannesburg";
     
+    @Column(name = "cc_email")
+    private String ccEmail;
+
     public User() {
     }
 
@@ -139,4 +142,11 @@ public class User {
     public void setTimezone(String timezone) {
         this.timezone = timezone;
     }
+    public String getCcEmail() {
+    return ccEmail;
+}
+
+public void setCcEmail(String ccEmail) {
+    this.ccEmail = ccEmail;
+}
 }

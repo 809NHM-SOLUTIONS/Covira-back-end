@@ -40,7 +40,7 @@ public class EmailService {
         SimpleMailMessage message = new SimpleMailMessage();
 
         message.setTo(toEmail);
-        message.setSubject("🎉 Welcome to Covira");
+        message.setSubject("Welcome to Covira");
 
         message.setText(
                 "Hello " + fullName + ",\n\n" +
@@ -141,4 +141,139 @@ public class EmailService {
 
         mailSender.send(message);
     }
+
+    // Sent to a candidate immediately after they submit an interview.
+    // Lets them know their response is under review and gives them the
+    // 15-day "no response = unsuccessful" expectation.
+    public void sendCandidateSubmissionConfirmationEmail(
+            String to,
+            String candidateName,
+            String interviewTitle,
+            String position
+    ) {
+
+        SimpleMailMessage message = new SimpleMailMessage();
+
+        message.setFrom("covirateams@gmail.com");
+        message.setTo(to);
+        message.setSubject("We've received your interview submission");
+
+        message.setText(
+                "Hello " + candidateName + ",\n\n" +
+                        "Thank you for completing your interview" +
+                        (position != null && !position.isBlank() ? " for the " + position + " role" : "") +
+                        (interviewTitle != null && !interviewTitle.isBlank() ? " (\"" + interviewTitle + "\")" : "") +
+                        ".\n\n" +
+                        "Your responses have been successfully recorded and are now under " +
+                        "review by the employer.\n\n" +
+                        "If you haven't heard back within 15 days, please consider your " +
+                        "application unsuccessful for this role.\n\n" +
+                        "Regards,\n" +
+                        "The Covira Team"
+        );
+
+        mailSender.send(message);
+    }
+
+    // Sent to a candidate once the employer records a Shortlist or Reject
+    // decision on their submission.
+    public void sendCandidateDecisionEmail(
+            String to,
+            String candidateName,
+            String interviewTitle,
+            String position,
+            String decision
+    ) {
+
+        boolean shortlisted = "SHORTLISTED".equalsIgnoreCase(decision);
+
+        String roleText =
+                (position != null && !position.isBlank())
+                        ? " for the " + position + " role"
+                        : "";
+
+        SimpleMailMessage message = new SimpleMailMessage();
+
+        message.setFrom("covirateams@gmail.com");
+        message.setTo(to);
+
+        if (shortlisted) {
+
+            message.setSubject("You've been shortlisted" + roleText);
+
+            message.setText(
+                    "Hello " + candidateName + ",\n\n" +
+                            "Good news.You have been shortlisted" + roleText +
+                            (interviewTitle != null && !interviewTitle.isBlank()
+                                    ? " after your submission for \"" + interviewTitle + "\""
+                                    : "") +
+                            ".\n\n" +
+                            "The employer will be in touch with you about next steps.\n\n" +
+                            "Regards,\n" +
+                            "The Covira Team"
+            );
+
+        } else {
+
+            message.setSubject("Update on your application" + roleText);
+
+            message.setText(
+                    "Hello " + candidateName + ",\n\n" +
+                            "Thank you for taking the time to complete your interview" + roleText +
+                            (interviewTitle != null && !interviewTitle.isBlank()
+                                    ? " (\"" + interviewTitle + "\")"
+                                    : "") +
+                            ".\n\n" +
+                            "After careful consideration, the employer has decided not to move " +
+                            "forward with your application on this occasion.\n\n" +
+                            "We wish you the best of luck with your job search.\n\n" +
+                            "Regards,\n" +
+                            "The Covira Team"
+            );
+            
+        }
+        
+
+        mailSender.send(message);
+    }
+    public void sendCandidateSubmittedAlertEmail(
+        String employerEmail,
+        String ccEmail,
+        String candidateName,
+        String position,
+        String interviewTitle
+) {
+
+    SimpleMailMessage message = new SimpleMailMessage();
+
+    message.setFrom("covirateams@gmail.com");
+    message.setTo(employerEmail);
+
+    if (ccEmail != null && !ccEmail.isBlank()) {
+        message.setCc(ccEmail);
+    }
+
+    String roleText =
+            (position != null && !position.isBlank())
+                    ? " for " + position
+                    : "";
+
+    message.setSubject("New candidate submission" + roleText);
+
+    message.setText(
+            "Hello,\n\n" +
+                    candidateName + " has just completed the interview" +
+                    (interviewTitle != null && !interviewTitle.isBlank()
+                            ? " \"" + interviewTitle + "\""
+                            : "") +
+                    roleText +
+                    ".\n\n" +
+                    "Log in to Covira to review their responses:\n" +
+                    "http://localhost:5173/login\n\n" +
+                    "Regards,\n" +
+                    "The Covira Team"
+    );
+
+    mailSender.send(message);
+}
 }

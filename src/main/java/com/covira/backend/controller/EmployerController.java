@@ -181,6 +181,18 @@ public class EmployerController {
                     .body("User is not logged in.");
         }
 
-        return ResponseEntity.ok(employerService.updateSettings(userId, request));
+      try {
+
+        return ResponseEntity.ok(
+                employerService.updateSettings(userId, request)
+        );
+
+    } catch (IllegalArgumentException e) {
+
+        return ResponseEntity
+                .badRequest()
+                .body(e.getMessage());
+    }
+   
     }
 }
