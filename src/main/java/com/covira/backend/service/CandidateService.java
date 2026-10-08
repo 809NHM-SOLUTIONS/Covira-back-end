@@ -1,21 +1,6 @@
 package com.covira.backend.service;
 
 
-import com.covira.backend.dto.CandidateDto;
-import com.covira.backend.dto.CandidateResponseDto;
-import com.covira.backend.entity.Candidate;
-import com.covira.backend.entity.CandidateResponse;
-import com.covira.backend.entity.Interview;
-import com.covira.backend.entity.Question;
-import com.covira.backend.repository.CandidateRepository;
-import com.covira.backend.repository.CandidateResponseRepository;
-import com.covira.backend.repository.InterviewRepository;
-import com.covira.backend.repository.QuestionRepository;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
-import com.covira.backend.notification.NotificationType;
-
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -27,6 +12,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+
+import com.covira.backend.dto.CandidateDto;
+import com.covira.backend.dto.CandidateResponseDto;
+import com.covira.backend.entity.Candidate;
+import com.covira.backend.entity.CandidateResponse;
+import com.covira.backend.entity.Interview;
+import com.covira.backend.entity.Question;
+import com.covira.backend.notification.NotificationType;
+import com.covira.backend.repository.CandidateRepository;
+import com.covira.backend.repository.CandidateResponseRepository;
+import com.covira.backend.repository.InterviewRepository;
+import com.covira.backend.repository.QuestionRepository;
+
 @Service
 public class CandidateService {
 
@@ -36,14 +37,22 @@ public class CandidateService {
     private static final DateTimeFormatter DATE_TIME_FORMAT =
             DateTimeFormatter.ofPattern("dd MMM yyyy, HH:mm");
 
+    /*
+     * Video file types candidates are allowed to upload.
+     * Anything else is stored as .webm.
+     */
+    private static final List<String> ALLOWED_VIDEO_EXTENSIONS =
+            List.of(".webm", ".mp4", ".mov");
+
+    private static final java.time.ZoneId SERVER_ZONE =
+            java.time.ZoneId.of("Africa/Johannesburg");
+
     private final CandidateRepository candidateRepository;
     private final InterviewRepository interviewRepository;
     private final CandidateResponseRepository candidateResponseRepository;
     private final QuestionRepository questionRepository;
-        private final NotificationService notificationService;
-        private final EmailService emailService;
- 
-private static final java.time.ZoneId SERVER_ZONE = java.time.ZoneId.of("Africa/Johannesburg");
+    private final NotificationService notificationService;
+    private final EmailService emailService;
 
 
     public CandidateService(
@@ -60,7 +69,7 @@ private static final java.time.ZoneId SERVER_ZONE = java.time.ZoneId.of("Africa/
         this.questionRepository = questionRepository;
         this.notificationService = notificationService;
         this.emailService = emailService;
-}
+    }
 
 
     /*
@@ -128,11 +137,23 @@ private static final java.time.ZoneId SERVER_ZONE = java.time.ZoneId.of("Africa/
          * this interview.
          */
 
-        if (!candidate.getInterview()
-                .equals(interview.getTitle())) {
+        if (!belongsToInterview(candidate, interview)) {
 
             throw new IllegalArgumentException(
                     "Candidate does not belong to this interview."
+            );
+        }
+
+
+        /*
+         * Videos can only be uploaded while the interview is
+         * still in progress. Once it has been submitted (or
+         * reviewed) the responses are final.
+         */
+
+        if (!"Pending".equalsIgnoreCase(candidate.getStatus())) {
+            throw new IllegalArgumentException(
+                    "This interview has already been submitted."
             );
         }
 
@@ -180,6 +201,10 @@ private static final java.time.ZoneId SERVER_ZONE = java.time.ZoneId.of("Africa/
 
             /*
              * Determine file extension.
+             *
+             * Only known video extensions are accepted, so a
+             * candidate cannot store e.g. an .html file that
+             * would later be served from /uploads/.
              */
 
             String originalFilename =
@@ -190,10 +215,16 @@ private static final java.time.ZoneId SERVER_ZONE = java.time.ZoneId.of("Africa/
             if (originalFilename != null &&
                     originalFilename.contains(".")) {
 
-                extension =
-                        originalFilename.substring(
-                                originalFilename.lastIndexOf(".")
-                        );
+                String ext =
+                        originalFilename
+                                .substring(
+                                        originalFilename.lastIndexOf(".")
+                                )
+                                .toLowerCase();
+
+                if (ALLOWED_VIDEO_EXTENSIONS.contains(ext)) {
+                    extension = ext;
+                }
             }
 
 
@@ -374,6 +405,9 @@ private static final java.time.ZoneId SERVER_ZONE = java.time.ZoneId.of("Africa/
                                 )
                         );
 
+        if (interview.isDeadlinePassed()) {
+            throw new IllegalStateException(Interview.CLOSED_MESSAGE);
+        }
 
         /*
          * Check whether this candidate already
@@ -395,10 +429,10 @@ private static final java.time.ZoneId SERVER_ZONE = java.time.ZoneId.of("Africa/
                                                 email.trim()
                                         )
                                         &&
-                                candidate.getInterview()
-                                        .equals(
-                                                interview.getTitle()
-                                        )
+                                belongsToInterview(
+                                        candidate,
+                                        interview
+                                )
                         )
                         .findFirst()
                         .orElse(null);
@@ -421,6 +455,12 @@ private static final java.time.ZoneId SERVER_ZONE = java.time.ZoneId.of("Africa/
                         "You have already completed this interview. " +
                                 "Multiple submissions are not permitted."
                 );
+            }
+
+            // Older candidates were linked by title only - link them now.
+            if (existingCandidate.getInterviewId() == null) {
+                existingCandidate.setInterviewId(interview.getId());
+                candidateRepository.save(existingCandidate);
             }
 
             return toDto(existingCandidate);
@@ -452,6 +492,10 @@ private static final java.time.ZoneId SERVER_ZONE = java.time.ZoneId.of("Africa/
 
         candidate.setInterview(
                 interview.getTitle()
+        );
+
+        candidate.setInterviewId(
+                interview.getId()
         );
 
         candidate.setDepartment(
@@ -503,16 +547,23 @@ private static final java.time.ZoneId SERVER_ZONE = java.time.ZoneId.of("Africa/
 
 
         /*
+         * An interview can only be submitted once. Without this,
+         * anyone could resubmit to overwrite answers, or flip a
+         * Shortlisted / Rejected candidate back to "Completed".
+         */
+
+        if (!"Pending".equalsIgnoreCase(candidate.getStatus())) {
+            throw new IllegalArgumentException(
+                    "This interview has already been submitted."
+            );
+        }
+
+
+        /*
          * Find interview.
          */
 
-        Interview interview =
-                interviewRepository
-                        .findByTitleAndEmployerId(
-                                candidate.getInterview(),
-                                candidate.getEmployer().getId()
-                        )
-                        .orElse(null);
+        Interview interview = findInterviewFor(candidate);
 
 
         /*
@@ -664,13 +715,14 @@ private static final java.time.ZoneId SERVER_ZONE = java.time.ZoneId.of("Africa/
         candidateRepository.save(
                 candidate
         );
-               notificationService.createForCandidate(
-        NotificationType.CANDIDATE_SUBMITTED,
-        "New Candidate Submission",
-        "A candidate has submitted their interview responses and is ready for review.",
-        candidate,
-        interview != null ? interview.getId() : null
-);
+
+        notificationService.createForCandidate(
+                NotificationType.CANDIDATE_SUBMITTED,
+                "New Candidate Submission",
+                "A candidate has submitted their interview responses and is ready for review.",
+                candidate,
+                interview != null ? interview.getId() : null
+        );
 
         /*
          * Email the employer (and their CC address, if set) that a
@@ -819,6 +871,53 @@ private static final java.time.ZoneId SERVER_ZONE = java.time.ZoneId.of("Africa/
 
     /*
      * ============================================================
+     * INTERVIEW LINKING HELPERS
+     * ============================================================
+     *
+     * Candidates are linked to their interview by interview ID.
+     * Candidates created before the ID existed only have the
+     * interview title, so those fall back to matching by title.
+     */
+
+    private boolean belongsToInterview(
+            Candidate candidate,
+            Interview interview
+    ) {
+
+        if (candidate.getInterviewId() != null) {
+            return candidate.getInterviewId()
+                    .equals(interview.getId());
+        }
+
+        return candidate.getInterview() != null
+                && candidate.getInterview()
+                        .equals(interview.getTitle());
+    }
+
+    private Interview findInterviewFor(Candidate candidate) {
+
+        Long employerId = candidate.getEmployer().getId();
+
+        if (candidate.getInterviewId() != null) {
+            return interviewRepository
+                    .findByIdAndEmployerId(
+                            candidate.getInterviewId(),
+                            employerId
+                    )
+                    .orElse(null);
+        }
+
+        return interviewRepository
+                .findByTitleAndEmployerId(
+                        candidate.getInterview(),
+                        employerId
+                )
+                .orElse(null);
+    }
+
+
+    /*
+     * ============================================================
      * CONVERT CANDIDATE TO DTO
      * ============================================================
      */
@@ -835,30 +934,32 @@ private static final java.time.ZoneId SERVER_ZONE = java.time.ZoneId.of("Africa/
 
 
         return new CandidateDto(
-        candidate.getId(),
-        candidate.getName(),
-        candidate.getEmail(),
-        candidate.getPosition(),
-        candidate.getInterview(),
-        candidate.getDepartment(),
-        candidate.getLocation(),
-        candidate.getStatus(),
+                candidate.getId(),
+                candidate.getName(),
+                candidate.getEmail(),
+                candidate.getPosition(),
+                candidate.getInterview(),
+                candidate.getDepartment(),
+                candidate.getLocation(),
+                candidate.getStatus(),
 
-        candidate.getSubmittedAt() == null
-                ? "-"
-                : DATE_FORMAT.format(
-                        candidate.getSubmittedAt()
-                ),
+                candidate.getSubmittedAt() == null
+                        ? "-"
+                        : DATE_FORMAT.format(
+                                candidate.getSubmittedAt()
+                        ),
 
-        candidate.getSubmittedAt() == null      // ← this is the excerpt
-                ? null                            //   (submittedAtIso argument)
-                : candidate.getSubmittedAt()
-                        .atZone(SERVER_ZONE)
-                        .toInstant()
-                        .toString(),
+                candidate.getSubmittedAt() == null
+                        ? null
+                        : candidate.getSubmittedAt()
+                                .atZone(SERVER_ZONE)
+                                .toInstant()
+                                .toString(),
 
-        responses
-);
+                responses,
+
+                candidate.getInterviewId()
+        );
     }
 
 

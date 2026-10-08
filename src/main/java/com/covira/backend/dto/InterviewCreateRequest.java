@@ -17,6 +17,53 @@ public class InterviewCreateRequest {
 
     private List<Long> questionIds;
 
+    // ---- Interview settings ----
+    private Integer answerTimeLimit;
+    private Integer maxRetakes;
+    private String welcomeMessage;
+    private Boolean requireConsent;
+    private Boolean allowBackNavigation;
+
+    public Integer getAnswerTimeLimit() {
+        return answerTimeLimit;
+    }
+
+    public void setAnswerTimeLimit(Integer answerTimeLimit) {
+        this.answerTimeLimit = answerTimeLimit;
+    }
+
+    public Integer getMaxRetakes() {
+        return maxRetakes;
+    }
+
+    public void setMaxRetakes(Integer maxRetakes) {
+        this.maxRetakes = maxRetakes;
+    }
+
+    public String getWelcomeMessage() {
+        return welcomeMessage;
+    }
+
+    public void setWelcomeMessage(String welcomeMessage) {
+        this.welcomeMessage = welcomeMessage;
+    }
+
+    public Boolean getRequireConsent() {
+        return requireConsent;
+    }
+
+    public void setRequireConsent(Boolean requireConsent) {
+        this.requireConsent = requireConsent;
+    }
+
+    public Boolean getAllowBackNavigation() {
+        return allowBackNavigation;
+    }
+
+    public void setAllowBackNavigation(Boolean allowBackNavigation) {
+        this.allowBackNavigation = allowBackNavigation;
+    }
+
 
     public String getTitle() {
         return title;

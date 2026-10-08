@@ -25,7 +25,20 @@ public class Candidate {
     private String email;
 
     private String position;
+
+    /*
+     * Interview title, kept for display. Older candidates were linked
+     * to their interview by this title only.
+     */
     private String interview;
+
+    /*
+     * ID of the interview this candidate belongs to. Null for older
+     * candidates created before this column existed.
+     */
+    @Column(name = "interview_id")
+    private Long interviewId;
+
     private String department;
     private String location;
     private String status;
@@ -86,6 +99,14 @@ public class Candidate {
 
     public void setInterview(String interview) {
         this.interview = interview;
+    }
+
+    public Long getInterviewId() {
+        return interviewId;
+    }
+
+    public void setInterviewId(Long interviewId) {
+        this.interviewId = interviewId;
     }
 
     public String getDepartment() {

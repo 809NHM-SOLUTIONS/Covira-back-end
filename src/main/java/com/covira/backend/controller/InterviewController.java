@@ -1,5 +1,6 @@
 package com.covira.backend.controller;
 
+import com.covira.backend.dto.InterviewCreateRequest;
 import com.covira.backend.entity.Interview;
 import com.covira.backend.service.InterviewService;
 import jakarta.servlet.http.HttpSession;
@@ -26,21 +27,11 @@ public class InterviewController {
         this.interviewService = interviewService;
     }
 
-    /*
-     * ============================================================
-     * CREATE INTERVIEW
-     * ============================================================
-     *
-     * POST:
-     * /api/interviews
-     *
-     * Creates an interview for the logged-in employer.
-     * ============================================================
-     */
+    
 
     @PostMapping
     public ResponseEntity<?> createInterview(
-            @RequestBody Map<String, String> request,
+            @RequestBody InterviewCreateRequest request,
             HttpSession session
     ) {
 
@@ -58,12 +49,7 @@ public class InterviewController {
             Interview interview =
                     interviewService.createInterview(
                             employerId,
-                            request.get("title"),
-                            request.get("position"),
-                            request.get("department"),
-                            request.get("employmentType"),
-                            request.get("location"),
-                            request.get("description")
+                            request
                     );
 
             return ResponseEntity
@@ -78,17 +64,7 @@ public class InterviewController {
         }
     }
 
-    /*
-     * ============================================================
-     * GET ALL INTERVIEWS
-     * ============================================================
-     *
-     * GET:
-     * /api/interviews
-     *
-     * Returns all interviews belonging to the logged-in employer.
-     * ============================================================
-     */
+   
 
     @GetMapping
     public ResponseEntity<?> getAllInterviews(
@@ -121,17 +97,7 @@ public class InterviewController {
         }
     }
 
-    /*
-     * ============================================================
-     * GET ONE INTERVIEW
-     * ============================================================
-     *
-     * GET:
-     * /api/interviews/{id}
-     *
-     * Returns one interview belonging to the logged-in employer.
-     * ============================================================
-     */
+    
 
     @GetMapping("/{id}")
     public ResponseEntity<?> getInterview(
@@ -200,18 +166,17 @@ public class InterviewController {
             return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
                     .body(e.getMessage());
+
+        } catch (IllegalStateException e) {
+
+            // The candidate deadline has passed.
+            return ResponseEntity
+                    .status(HttpStatus.GONE)
+                    .body(e.getMessage());
         }
     }
 
-    /*
-     * ============================================================
-     * GET LOGGED-IN EMPLOYER
-     * ============================================================
-     *
-     * Retrieves the employer ID stored in the HTTP session.
-     * ============================================================
-     */
-
+   
     private Long getEmployerId(
             HttpSession session
     ) {

@@ -145,6 +145,13 @@ public class CandidateController {
             return ResponseEntity
                     .badRequest()
                     .body(e.getMessage());
+
+        } catch (IllegalStateException e) {
+
+            // The candidate deadline has passed.
+            return ResponseEntity
+                    .status(HttpStatus.GONE)
+                    .body(e.getMessage());
         }
     }
 
@@ -170,6 +177,7 @@ public class CandidateController {
 
             CandidateDto candidate =
                     candidateService.submitInterview(
+                        
                             id,
                             answers
                     );

@@ -1,13 +1,15 @@
 package com.covira.backend.service;
 
+import java.util.ArrayList;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
 import com.covira.backend.entity.Interview;
 import com.covira.backend.entity.Question;
 import com.covira.backend.repository.CandidateRepository;
 import com.covira.backend.repository.InterviewRepository;
 import com.covira.backend.repository.QuestionRepository;
-import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 public class QuestionService {
@@ -30,7 +32,10 @@ public class QuestionService {
             Long interviewId,
             String questionText,
             String questionType,
-            Integer timeLimit
+            Integer timeLimit,
+            List<String> options,
+            Boolean allowMultiple,
+            Boolean required
     ) {
 
         Interview interview = interviewRepository
@@ -42,6 +47,8 @@ public class QuestionService {
                 );
 
         assertNotLocked(interview);
+
+        List<String> cleanOptions = cleanOptions(questionType, options);
 
         List<Question> existingQuestions =
                 questionRepository
@@ -55,10 +62,52 @@ public class QuestionService {
         question.setQuestionText(questionText);
         question.setQuestionType(questionType);
         question.setTimeLimit(timeLimit);
-
-        question.setQuestionOrder(
-                existingQuestions.size() + 1
+        question.setOptions(cleanOptions);
+        question.setAllowMultiple(
+                isMultipleChoice(questionType)
+                        && Boolean.TRUE.equals(allowMultiple)
         );
+        question.setQuestionOrder(existingQuestions.size() + 1);
+        question.setRequired(!Boolean.FALSE.equals(required));
+
+        return questionRepository.save(question);
+    }
+
+    public Question updateQuestion(
+            Long interviewId,
+            Long questionId,
+            String questionText,
+            String questionType,
+            Integer timeLimit,
+            List<String> options,
+            Boolean allowMultiple,
+            Boolean required
+    ) {
+
+        Interview interview = interviewRepository
+                .findById(interviewId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Interview not found."
+                        )
+                );
+
+        // Server-side lock: blocks edits once any candidate has submitted.
+        assertNotLocked(interview);
+
+        Question question = getQuestion(interviewId, questionId);
+
+        List<String> cleanOptions = cleanOptions(questionType, options);
+
+        question.setQuestionText(questionText);
+        question.setQuestionType(questionType);
+        question.setTimeLimit(timeLimit);
+        question.setOptions(cleanOptions);
+        question.setAllowMultiple(
+                isMultipleChoice(questionType)
+                        && Boolean.TRUE.equals(allowMultiple)
+        );
+        question.setRequired(!Boolean.FALSE.equals(required));
 
         return questionRepository.save(question);
     }
@@ -72,7 +121,12 @@ public class QuestionService {
     }
 
     /**
-      An interview locks the moment any candidate has completed it
+     * An interview locks the moment any candidate has submitted it.
+     *
+     * Uses "has a submission time" rather than status "Completed", so the
+     * lock stays in place after the employer shortlists or rejects the
+     * candidate. Scoped to this employer so another employer's interview
+     * with the same title cannot lock this one.
      */
     public boolean isLocked(Long interviewId) {
 
@@ -84,25 +138,59 @@ public class QuestionService {
                         )
                 );
 
-        return candidateRepository.existsByInterviewAndStatus(
-                interview.getTitle(),
-                "Completed"
+        return hasSubmissions(interview);
+    }
+
+    private boolean hasSubmissions(Interview interview) {
+
+        return candidateRepository.hasSubmissions(
+                interview.getEmployer().getId(),
+                interview.getId(),
+                interview.getTitle()
         );
     }
 
     private void assertNotLocked(Interview interview) {
 
-        boolean hasCompletedCandidate =
-                candidateRepository.existsByInterviewAndStatus(
-                        interview.getTitle(),
-                        "Completed"
-                );
-
-        if (hasCompletedCandidate) {
+        if (hasSubmissions(interview)) {
             throw new IllegalArgumentException(
                     "This interview has candidate submissions and can no longer be edited."
             );
         }
+    }
+
+    private boolean isMultipleChoice(String questionType) {
+        return questionType != null
+                && questionType.trim().equalsIgnoreCase("Multiple Choice");
+    }
+
+    /**
+     * Trims, drops blanks, and requires 2+ options for multiple choice.
+     * Other question types always get an empty list.
+     */
+    private List<String> cleanOptions(
+            String questionType,
+            List<String> options
+    ) {
+
+        if (!isMultipleChoice(questionType)) {
+            return new ArrayList<>();
+        }
+
+        List<String> cleaned = options == null
+                ? new ArrayList<>()
+                : options.stream()
+                        .filter(o -> o != null && !o.trim().isEmpty())
+                        .map(String::trim)
+                        .toList();
+
+        if (cleaned.size() < 2) {
+            throw new IllegalArgumentException(
+                    "Multiple choice questions need at least 2 answer options."
+            );
+        }
+
+        return cleaned;
     }
 
     public List<Question> getPublicQuestions(String token) {
@@ -115,6 +203,10 @@ public class QuestionService {
                                         "Interview link is invalid or expired."
                                 )
                         );
+
+        if (interview.isDeadlinePassed()) {
+            throw new IllegalStateException(Interview.CLOSED_MESSAGE);
+        }
 
         return questionRepository
                 .findAllByInterviewIdOrderByQuestionOrderAsc(

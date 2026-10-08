@@ -1,11 +1,12 @@
 package com.covira.backend.repository;
 
-import com.covira.backend.entity.Interview;
+import java.util.List;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.List;
-import java.util.Optional;
+import com.covira.backend.entity.Interview;
 
 @Repository
 public interface InterviewRepository
@@ -28,4 +29,5 @@ public interface InterviewRepository
             String title,
             Long employerId
     );
+        boolean existsByEmployerIdAndTitleIgnoreCase(Long employerId, String title);
 }

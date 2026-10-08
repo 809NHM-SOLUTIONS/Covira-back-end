@@ -1,12 +1,24 @@
 package com.covira.backend.entity;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonManagedReference;
-import jakarta.persistence.*;
-
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
+import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "interviews")
@@ -42,6 +54,49 @@ public class Interview {
 
     private String description;
 
+    /*
+     * ============================================================
+     * INTERVIEW SETTINGS
+     * ============================================================
+     *
+     * All settings are nullable / wrapper types so that existing
+     * rows (created before these columns existed) keep working:
+     *   - answerTimeLimit  null      -> no limit
+     *   - maxRetakes       null      -> unlimited retakes
+     *   - candidateDeadline null     -> no deadline
+     *   - requireConsent   null/false-> no consent checkbox
+     *   - allowBackNavigation null/true -> back button allowed
+     */
+
+    public static final String CLOSED_MESSAGE =
+            "The deadline for this interview has passed and it is "
+                    + "no longer accepting responses. Please contact "
+                    + "the employer if you need more time.";
+
+    /** Maximum recording length per video answer, in seconds. */
+    @Column(name = "answer_time_limit")
+    private Integer answerTimeLimit;
+
+    /** Re-records allowed per video question. 0 = none, null = unlimited. */
+    @Column(name = "max_retakes")
+    private Integer maxRetakes;
+
+    /** Candidates can no longer open or start the interview after this. */
+    @Column(name = "candidate_deadline")
+    private LocalDateTime candidateDeadline;
+
+    /** Optional intro shown to candidates before they begin. */
+    @Column(name = "welcome_message", columnDefinition = "TEXT")
+    private String welcomeMessage;
+
+    /** Candidate must tick a recording/privacy consent box to start. */
+    @Column(name = "require_consent")
+    private Boolean requireConsent = false;
+
+    /** Whether the candidate may go back to previous questions. */
+    @Column(name = "allow_back_navigation")
+    private Boolean allowBackNavigation = true;
+
 
     @Column(
             name = "interview_token",
@@ -52,7 +107,7 @@ public class Interview {
 
 
     @Column(nullable = false)
-    private String status = "Draft";
+    private String status = "Active";
 
 
     @Column(name = "created_at", nullable = false)
@@ -178,6 +233,64 @@ public class Interview {
         this.createdAt = createdAt;
     }
 
+
+    public Integer getAnswerTimeLimit() {
+        return answerTimeLimit;
+    }
+
+    public void setAnswerTimeLimit(Integer answerTimeLimit) {
+        this.answerTimeLimit = answerTimeLimit;
+    }
+
+    public Integer getMaxRetakes() {
+        return maxRetakes;
+    }
+
+    public void setMaxRetakes(Integer maxRetakes) {
+        this.maxRetakes = maxRetakes;
+    }
+
+    public LocalDateTime getCandidateDeadline() {
+        return candidateDeadline;
+    }
+
+    public void setCandidateDeadline(LocalDateTime candidateDeadline) {
+        this.candidateDeadline = candidateDeadline;
+    }
+
+    public String getWelcomeMessage() {
+        return welcomeMessage;
+    }
+
+    public void setWelcomeMessage(String welcomeMessage) {
+        this.welcomeMessage = welcomeMessage;
+    }
+
+    public Boolean getRequireConsent() {
+        return requireConsent;
+    }
+
+    public void setRequireConsent(Boolean requireConsent) {
+        this.requireConsent = requireConsent;
+    }
+
+    public Boolean getAllowBackNavigation() {
+        return allowBackNavigation;
+    }
+
+    public void setAllowBackNavigation(Boolean allowBackNavigation) {
+        this.allowBackNavigation = allowBackNavigation;
+    }
+
+    /**
+     * True once the candidate deadline (if any) has passed.
+     * Not serialised to JSON.
+     */
+    @JsonIgnore
+    public boolean isDeadlinePassed() {
+        return candidateDeadline != null
+                && LocalDateTime.now().isAfter(candidateDeadline);
+    }
 
     public List<Question> getQuestions() {
         return questions;

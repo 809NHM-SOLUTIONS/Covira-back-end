@@ -1,12 +1,25 @@
 package com.covira.backend.controller;
 
-import com.covira.backend.entity.Question;
-import com.covira.backend.service.QuestionService;
+import java.util.List;
+import java.util.Map;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.util.List;
+import com.covira.backend.entity.Question;
+import com.covira.backend.service.InterviewService;
+import com.covira.backend.service.QuestionService;
+
+import jakarta.servlet.http.HttpSession;
 
 @RestController
 @RequestMapping("/api")
@@ -17,23 +30,50 @@ import java.util.List;
 public class QuestionController {
 
     private final QuestionService questionService;
+    private final InterviewService interviewService;
 
     public QuestionController(
-            QuestionService questionService
+            QuestionService questionService,
+            InterviewService interviewService
     ) {
         this.questionService = questionService;
+        this.interviewService = interviewService;
     }
 
     /*
-     * ============================================================
-     * PUBLIC INTERVIEW QUESTIONS
-     * ============================================================
-     *
-     * Candidates do not need to be logged in.
-     *
-     * GET:
-     * /api/interviews/public/{token}/questions
-     * ============================================================
+     * Returns null when the logged-in employer owns the interview.
+     * Otherwise returns the error response to send back.
+     */
+    private ResponseEntity<?> checkOwnership(
+            HttpSession session,
+            Long interviewId
+    ) {
+
+        Long employerId =
+                (Long) session.getAttribute("loggedInUserId");
+
+        if (employerId == null) {
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body("User is not logged in.");
+        }
+
+        try {
+            // Throws IllegalArgumentException when the interview
+            // doesn't exist or belongs to another employer.
+            interviewService.getInterview(employerId, interviewId);
+            return null;
+
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body("Interview not found.");
+        }
+    }
+
+    /*
+     * PUBLIC (candidates, no login)
+     * GET: /api/interviews/public/{token}/questions
      */
 
     @GetMapping("/interviews/public/{token}/questions")
@@ -53,24 +93,24 @@ public class QuestionController {
             return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
                     .body(e.getMessage());
+
+        } catch (IllegalStateException e) {
+
+            return ResponseEntity
+                    .status(HttpStatus.GONE)
+                    .body(e.getMessage());
         }
     }
-
-    /*
-     * ============================================================
-     * ADD QUESTION TO INTERVIEW
-     * ============================================================
-     *
-     * POST:
-     * /api/interviews/{interviewId}/questions
-     * ============================================================
-     */
 
     @PostMapping("/interviews/{interviewId}/questions")
     public ResponseEntity<?> createQuestion(
             @PathVariable Long interviewId,
-            @RequestBody QuestionRequest request
+            @RequestBody QuestionRequest request,
+            HttpSession session
     ) {
+
+        ResponseEntity<?> denied = checkOwnership(session, interviewId);
+        if (denied != null) return denied;
 
         try {
 
@@ -79,7 +119,10 @@ public class QuestionController {
                             interviewId,
                             request.questionText(),
                             request.questionType(),
-                            request.timeLimit()
+                            request.timeLimit(),
+                            request.options(),
+                            request.allowMultiple(),
+                              request.required()
                     );
 
             return ResponseEntity
@@ -94,62 +137,29 @@ public class QuestionController {
         }
     }
 
-    /*
-     * ============================================================
-     * GET INTERVIEW QUESTIONS
-     * ============================================================
-     *
-     * GET:
-     * /api/interviews/{interviewId}/questions
-     * ============================================================
-     */
-
-    @GetMapping("/interviews/{interviewId}/questions")
-    public ResponseEntity<?> getQuestions(
-            @PathVariable Long interviewId
-    ) {
-
-        try {
-
-            List<Question> questions =
-                    questionService.getQuestions(
-                            interviewId
-                    );
-
-            return ResponseEntity.ok(questions);
-
-        } catch (IllegalArgumentException e) {
-
-            return ResponseEntity
-                    .status(HttpStatus.NOT_FOUND)
-                    .body(e.getMessage());
-        }
-    }
-
-    /*
-     * ============================================================
-     * GET ONE QUESTION
-     * ============================================================
-     *
-     * GET:
-     * /api/interviews/{interviewId}/questions/{questionId}
-     * ============================================================
-     */
-
-    @GetMapping(
-            "/interviews/{interviewId}/questions/{questionId}"
-    )
-    public ResponseEntity<?> getQuestion(
+    @PutMapping("/interviews/{interviewId}/questions/{questionId}")
+    public ResponseEntity<?> updateQuestion(
             @PathVariable Long interviewId,
-            @PathVariable Long questionId
+            @PathVariable Long questionId,
+            @RequestBody QuestionRequest request,
+            HttpSession session
     ) {
+
+        ResponseEntity<?> denied = checkOwnership(session, interviewId);
+        if (denied != null) return denied;
 
         try {
 
             Question question =
-                    questionService.getQuestion(
+                    questionService.updateQuestion(
                             interviewId,
-                            questionId
+                            questionId,
+                            request.questionText(),
+                            request.questionType(),
+                            request.timeLimit(),
+                            request.options(),
+                            request.allowMultiple(),
+                                request.required()
                     );
 
             return ResponseEntity.ok(question);
@@ -157,74 +167,95 @@ public class QuestionController {
         } catch (IllegalArgumentException e) {
 
             return ResponseEntity
+                    .badRequest()
+                    .body(e.getMessage());
+        }
+    }
+
+    @GetMapping("/interviews/{interviewId}/questions")
+    public ResponseEntity<?> getQuestions(
+            @PathVariable Long interviewId,
+            HttpSession session
+    ) {
+
+        ResponseEntity<?> denied = checkOwnership(session, interviewId);
+        if (denied != null) return denied;
+
+        return ResponseEntity.ok(
+                questionService.getQuestions(interviewId)
+        );
+    }
+
+    @GetMapping("/interviews/{interviewId}/questions/locked")
+    public ResponseEntity<?> isLocked(
+            @PathVariable Long interviewId,
+            HttpSession session
+    ) {
+
+        ResponseEntity<?> denied = checkOwnership(session, interviewId);
+        if (denied != null) return denied;
+
+        return ResponseEntity.ok(
+                Map.of("locked", questionService.isLocked(interviewId))
+        );
+    }
+
+    @GetMapping("/interviews/{interviewId}/questions/{questionId}")
+    public ResponseEntity<?> getQuestion(
+            @PathVariable Long interviewId,
+            @PathVariable Long questionId,
+            HttpSession session
+    ) {
+
+        ResponseEntity<?> denied = checkOwnership(session, interviewId);
+        if (denied != null) return denied;
+
+        try {
+
+            return ResponseEntity.ok(
+                    questionService.getQuestion(interviewId, questionId)
+            );
+
+        } catch (IllegalArgumentException e) {
+
+            return ResponseEntity
                     .status(HttpStatus.NOT_FOUND)
                     .body(e.getMessage());
         }
     }
 
-    /*
-     * ============================================================
-     * DELETE QUESTION
-     * ============================================================
-     *
-     * DELETE:
-     * /api/interviews/{interviewId}/questions/{questionId}
-     * ============================================================
-     */
-
-    @DeleteMapping(
-            "/interviews/{interviewId}/questions/{questionId}"
-    )
+    @DeleteMapping("/interviews/{interviewId}/questions/{questionId}")
     public ResponseEntity<?> deleteQuestion(
             @PathVariable Long interviewId,
-            @PathVariable Long questionId
+            @PathVariable Long questionId,
+            HttpSession session
     ) {
+
+        ResponseEntity<?> denied = checkOwnership(session, interviewId);
+        if (denied != null) return denied;
 
         try {
 
-            questionService.deleteQuestion(
-                    interviewId,
-                    questionId
-            );
+            questionService.deleteQuestion(interviewId, questionId);
 
             return ResponseEntity.noContent().build();
 
         } catch (IllegalArgumentException e) {
 
+            // e.g. the interview is locked
             return ResponseEntity
-                    .status(HttpStatus.NOT_FOUND)
+                    .badRequest()
                     .body(e.getMessage());
         }
     }
-
-    /*
-     * ============================================================
-     * REQUEST DTO
-     * ============================================================
-     */
 
     public record QuestionRequest(
             String questionText,
             String questionType,
-            Integer timeLimit
+            Integer timeLimit,
+            List<String> options,
+            Boolean allowMultiple,
+            Boolean required
     ) {
-    }
-        @GetMapping("/interviews/{interviewId}/questions/locked")
-    public ResponseEntity<?> isLocked(
-            @PathVariable Long interviewId
-    ) {
-
-        try {
-
-            boolean locked = questionService.isLocked(interviewId);
-
-            return ResponseEntity.ok(java.util.Map.of("locked", locked));
-
-        } catch (IllegalArgumentException e) {
-
-            return ResponseEntity
-                    .status(HttpStatus.NOT_FOUND)
-                    .body(e.getMessage());
-        }
     }
 }
