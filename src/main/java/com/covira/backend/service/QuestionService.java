@@ -1,9 +1,14 @@
 package com.covira.backend.service;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.covira.backend.entity.Interview;
 import com.covira.backend.entity.Question;
@@ -48,6 +53,8 @@ public class QuestionService {
 
         assertNotLocked(interview);
 
+        requireText(questionText);
+
         List<String> cleanOptions = cleanOptions(questionType, options);
 
         List<Question> existingQuestions =
@@ -59,7 +66,7 @@ public class QuestionService {
         Question question = new Question();
 
         question.setInterview(interview);
-        question.setQuestionText(questionText);
+        question.setQuestionText(questionText.trim());
         question.setQuestionType(questionType);
         question.setTimeLimit(timeLimit);
         question.setOptions(cleanOptions);
@@ -97,9 +104,11 @@ public class QuestionService {
 
         Question question = getQuestion(interviewId, questionId);
 
+        requireText(questionText);
+
         List<String> cleanOptions = cleanOptions(questionType, options);
 
-        question.setQuestionText(questionText);
+        question.setQuestionText(questionText.trim());
         question.setQuestionType(questionType);
         question.setTimeLimit(timeLimit);
         question.setOptions(cleanOptions);
@@ -204,6 +213,10 @@ public class QuestionService {
                                 )
                         );
 
+        if (interview.isArchived()) {
+            throw new IllegalStateException(Interview.ARCHIVED_MESSAGE);
+        }
+
         if (interview.isDeadlinePassed()) {
             throw new IllegalStateException(Interview.CLOSED_MESSAGE);
         }
@@ -231,6 +244,7 @@ public class QuestionService {
                 );
     }
 
+    @Transactional
     public void deleteQuestion(
             Long interviewId,
             Long questionId
@@ -252,5 +266,92 @@ public class QuestionService {
         );
 
         questionRepository.delete(question);
+        questionRepository.flush();
+
+        // Close the gap so the order stays 1..n.
+        List<Question> remaining =
+                questionRepository
+                        .findAllByInterviewIdOrderByQuestionOrderAsc(
+                                interviewId
+                        );
+
+        int order = 1;
+        for (Question q : remaining) {
+            q.setQuestionOrder(order++);
+        }
+
+        questionRepository.saveAll(remaining);
+    }
+
+    /**
+     * Saves a new question order. The list must contain every
+     * question of the interview exactly once, in the wanted order.
+     */
+    @Transactional
+    public List<Question> reorderQuestions(
+            Long interviewId,
+            List<Long> questionIds
+    ) {
+
+        Interview interview = interviewRepository
+                .findById(interviewId)
+                .orElseThrow(() ->
+                        new IllegalArgumentException(
+                                "Interview not found."
+                        )
+                );
+
+        assertNotLocked(interview);
+
+        List<Question> existing =
+                questionRepository
+                        .findAllByInterviewIdOrderByQuestionOrderAsc(
+                                interviewId
+                        );
+
+        if (questionIds == null
+                || questionIds.size() != existing.size()
+                || new HashSet<>(questionIds).size()
+                        != questionIds.size()) {
+            throw new IllegalArgumentException(
+                    "The new order must list every question exactly once."
+            );
+        }
+
+        Map<Long, Question> byId = existing.stream()
+                .collect(Collectors.toMap(
+                        Question::getId,
+                        Function.identity()
+                ));
+
+        int order = 1;
+        for (Long id : questionIds) {
+
+            Question q = byId.get(id);
+
+            if (q == null) {
+                throw new IllegalArgumentException(
+                        "Question not found in this interview."
+                );
+            }
+
+            q.setQuestionOrder(order++);
+        }
+
+        questionRepository.saveAll(existing);
+
+        return questionRepository
+                .findAllByInterviewIdOrderByQuestionOrderAsc(
+                        interviewId
+                );
+    }
+
+    private void requireText(String questionText) {
+
+        if (questionText == null || questionText.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Question text is required."
+            );
+        }
     }
 }

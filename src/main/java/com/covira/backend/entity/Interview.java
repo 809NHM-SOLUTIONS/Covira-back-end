@@ -292,6 +292,18 @@ public class Interview {
                 && LocalDateTime.now().isAfter(candidateDeadline);
     }
 
+    public static final String ARCHIVED_STATUS = "Archived";
+
+    public static final String ARCHIVED_MESSAGE =
+            "This interview is no longer accepting responses. "
+                    + "Please contact the employer.";
+
+    /** An archived interview's candidate link no longer works. */
+    @JsonIgnore
+    public boolean isArchived() {
+        return ARCHIVED_STATUS.equalsIgnoreCase(status);
+    }
+
     public List<Question> getQuestions() {
         return questions;
     }

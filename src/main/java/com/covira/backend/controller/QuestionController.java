@@ -137,6 +137,37 @@ public class QuestionController {
         }
     }
 
+    /*
+     * PUT: /api/interviews/{interviewId}/questions/reorder
+     * Body: { "questionIds": [3, 1, 2] }  (new order, first to last)
+     */
+    @PutMapping("/interviews/{interviewId}/questions/reorder")
+    public ResponseEntity<?> reorderQuestions(
+            @PathVariable Long interviewId,
+            @RequestBody ReorderRequest request,
+            HttpSession session
+    ) {
+
+        ResponseEntity<?> denied = checkOwnership(session, interviewId);
+        if (denied != null) return denied;
+
+        try {
+
+            return ResponseEntity.ok(
+                    questionService.reorderQuestions(
+                            interviewId,
+                            request.questionIds()
+                    )
+            );
+
+        } catch (IllegalArgumentException e) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(e.getMessage());
+        }
+    }
+
     @PutMapping("/interviews/{interviewId}/questions/{questionId}")
     public ResponseEntity<?> updateQuestion(
             @PathVariable Long interviewId,
@@ -247,6 +278,9 @@ public class QuestionController {
                     .badRequest()
                     .body(e.getMessage());
         }
+    }
+
+    public record ReorderRequest(List<Long> questionIds) {
     }
 
     public record QuestionRequest(

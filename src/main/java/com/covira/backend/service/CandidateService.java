@@ -405,6 +405,10 @@ public class CandidateService {
                                 )
                         );
 
+        if (interview.isArchived()) {
+            throw new IllegalStateException(Interview.ARCHIVED_MESSAGE);
+        }
+
         if (interview.isDeadlinePassed()) {
             throw new IllegalStateException(Interview.CLOSED_MESSAGE);
         }

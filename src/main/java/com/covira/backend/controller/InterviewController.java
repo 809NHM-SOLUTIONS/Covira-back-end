@@ -134,6 +134,175 @@ public class InterviewController {
 
     /*
      * ============================================================
+     * UPDATE INTERVIEW
+     * PUT /api/interviews/{id}
+     * ============================================================
+     */
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateInterview(
+            @PathVariable Long id,
+            @RequestBody InterviewCreateRequest request,
+            HttpSession session
+    ) {
+
+        Long employerId = getEmployerId(session);
+
+        if (employerId == null) {
+
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body("User is not logged in.");
+        }
+
+        try {
+
+            return ResponseEntity.ok(
+                    interviewService.updateInterview(
+                            employerId,
+                            id,
+                            request
+                    )
+            );
+
+        } catch (IllegalArgumentException e) {
+
+            return errorResponse(e);
+        }
+    }
+
+    /*
+     * ============================================================
+     * ARCHIVE / RESTORE INTERVIEW
+     * POST /api/interviews/{id}/archive
+     * POST /api/interviews/{id}/restore
+     * ============================================================
+     */
+
+    @PostMapping("/{id}/archive")
+    public ResponseEntity<?> archiveInterview(
+            @PathVariable Long id,
+            HttpSession session
+    ) {
+
+        Long employerId = getEmployerId(session);
+
+        if (employerId == null) {
+
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body("User is not logged in.");
+        }
+
+        try {
+
+            return ResponseEntity.ok(
+                    interviewService.archiveInterview(employerId, id)
+            );
+
+        } catch (IllegalArgumentException e) {
+
+            return errorResponse(e);
+        }
+    }
+
+    @PostMapping("/{id}/restore")
+    public ResponseEntity<?> restoreInterview(
+            @PathVariable Long id,
+            HttpSession session
+    ) {
+
+        Long employerId = getEmployerId(session);
+
+        if (employerId == null) {
+
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body("User is not logged in.");
+        }
+
+        try {
+
+            return ResponseEntity.ok(
+                    interviewService.restoreInterview(employerId, id)
+            );
+
+        } catch (IllegalArgumentException e) {
+
+            return errorResponse(e);
+        }
+    }
+
+    /*
+     * ============================================================
+     * DELETE INTERVIEW
+     * DELETE /api/interviews/{id}
+     * ============================================================
+     *
+     * Refused (409) while any candidate is still awaiting review.
+     */
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteInterview(
+            @PathVariable Long id,
+            HttpSession session
+    ) {
+
+        Long employerId = getEmployerId(session);
+
+        if (employerId == null) {
+
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body("User is not logged in.");
+        }
+
+        try {
+
+            interviewService.deleteInterview(employerId, id);
+
+            return ResponseEntity.noContent().build();
+
+        } catch (IllegalArgumentException e) {
+
+            return errorResponse(e);
+        }
+    }
+
+    /*
+     * Maps a service error to a status code:
+     * missing interview -> 404, locked by submissions -> 409,
+     * anything else (validation) -> 400.
+     */
+    private ResponseEntity<?> errorResponse(
+            IllegalArgumentException e
+    ) {
+
+        String message = e.getMessage();
+
+        if ("Interview not found.".equals(message)) {
+
+            return ResponseEntity
+                    .status(HttpStatus.NOT_FOUND)
+                    .body(message);
+        }
+
+        if (message != null
+                && (message.contains("candidate submissions")
+                || message.contains("awaiting review"))) {
+
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT)
+                    .body(message);
+        }
+
+        return ResponseEntity
+                .badRequest()
+                .body(message);
+    }
+
+    /*
+     * ============================================================
      * PUBLIC INTERVIEW
      * ============================================================
      *
